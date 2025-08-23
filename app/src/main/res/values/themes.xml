@@ -1,0 +1,28 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme.
+         This theme will adapt to the system's Day/Night setting. -->
+    <style name="Theme.Cutiepaws" parent="android:Theme.DeviceDefault.NoActionBar">
+        <!-- You can customize common attributes here if needed,
+             but for basic system dark mode, few are required. -->
+
+        <!-- Example: You might want to define primary colors that work well
+             in both light and dark modes, or leave it to the system default.
+        <item name="colorPrimary">@color/my_default_primary</item>
+        <item name="colorPrimaryDark">@color/my_default_primary_dark</item>
+        <item name="colorAccent">@color/my_default_accent</item>
+        -->
+
+        <!-- Ensure status bar is appropriately colored for dark mode -->
+        <item name="android:statusBarColor" tools:targetApi="lollipop">?android:attr/colorBackground</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item> <!-- Assumes dark background, so light icons -->
+    </style>
+
+    <!-- Optional: Fullscreen variant, inheriting from your base theme -->
+    <style name="Theme.Cutiepaws.FullScreen" parent="Theme.Cutiepaws">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+</resources>
