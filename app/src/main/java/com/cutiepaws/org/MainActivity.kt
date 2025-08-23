@@ -6,12 +6,15 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets // For consuming insets
@@ -24,23 +27,41 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+// import androidx.compose.ui.platform.LocalContext // Not strictly needed for this specific keyboard issue
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import android.graphics.Color as AndroidGraphicsColor // Alias for Android Color
+import android.os.Build // Needed for WebView debugging
 
 class MainActivity : ComponentActivity() {
+
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (filePathCallback == null) return@registerForActivityResult
+        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        filePathCallback?.onReceiveValue(uris)
+        filePathCallback = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Enable Edge-to-Edge display
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Enable WebView debugging in debug builds
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
+        }
 
-        // 2. Configure Status Bar Appearance (Transparent background, Light icons)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AndroidGraphicsColor.TRANSPARENT
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
 
         setContent {
-            MaterialTheme { // Replace with YourAppComposeTheme when it's correctly set up
+            MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -54,7 +75,25 @@ class MainActivity : ComponentActivity() {
                             url = "https://cutiepaws.org",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(WindowInsets.statusBars.asPaddingValues())
+                                .padding(WindowInsets.statusBars.asPaddingValues()),
+                            onShowFileChooser = { callback, params ->
+                                filePathCallback = callback
+                                val intent = params?.createIntent()
+                                if (intent != null) {
+                                    try {
+                                        fileChooserLauncher.launch(intent)
+                                    } catch (e: ActivityNotFoundException) {
+                                        Log.e("MainActivity", "Cannot open file chooser", e)
+                                        filePathCallback?.onReceiveValue(null)
+                                        filePathCallback = null
+                                    }
+                                } else {
+                                    Log.w("MainActivity", "File chooser intent was null.")
+                                    filePathCallback?.onReceiveValue(null)
+                                    filePathCallback = null
+                                }
+                                true
+                            }
                         )
                     }
                 }
@@ -64,9 +103,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WebViewScreen(url: String, modifier: Modifier = Modifier) {
+fun WebViewScreen(
+    url: String,
+    modifier: Modifier = Modifier,
+    onShowFileChooser: (ValueCallback<Array<Uri>>?, WebChromeClient.FileChooserParams?) -> Boolean
+) {
     AndroidView(
-        factory = { webViewContext -> // This context is crucial for the WebViewClient
+        factory = { webViewContext ->
             WebView(webViewContext).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -75,47 +118,45 @@ fun WebViewScreen(url: String, modifier: Modifier = Modifier) {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
+                settings.allowFileAccess = true
+
+                // Request focus for the WebView. This can sometimes help ensure
+                // it's ready to handle input events from its web content.
+                // However, the web content itself must focus the HTML input element.
+                requestFocus()
+
 
                 webViewClient = object : WebViewClient() {
-                    // Preferred method for API 24 (Android 7.0) and above
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val loadedUrl = request?.url?.toString()
                         if (loadedUrl != null && (loadedUrl.startsWith("http://") || loadedUrl.startsWith("https://"))) {
-                            // Check if the URL is for the initial domain, if so, let WebView handle it.
-                            // Otherwise, open in external browser.
-                            // This simple check assumes cutiepaws.org is your main domain.
-                            // For more complex scenarios (subdomains, multiple owned domains),
-                            // you might need a more robust domain checking logic.
                             if (Uri.parse(loadedUrl).host?.contains("cutiepaws.org") == true) {
-                                return false // Load within WebView for cutiepaws.org links
+                                return false
                             }
-
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loadedUrl))
-                                webViewContext.startActivity(intent) // Use the context from the factory
-                                return true // WebView has handled the URL
+                                webViewContext.startActivity(intent)
+                                return true
                             } catch (e: ActivityNotFoundException) {
                                 Log.e("WebViewScreen", "Activity not found for URL: $loadedUrl", e)
-                                return false // Let WebView try to load if intent fails
+                                return false
                             } catch (e: Exception) {
                                 Log.e("WebViewScreen", "Error opening URL: $loadedUrl", e)
                                 return false
                             }
                         }
-                        return false // For non-http/https links or other cases, let WebView handle
+                        return false
                     }
 
-                    // Fallback for older versions (pre-API 24)
                     @Deprecated("Use shouldOverrideUrlLoading(view, request) for API 24+", ReplaceWith("shouldOverrideUrlLoading(view, request)"))
                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                         if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
                             if (Uri.parse(url).host?.contains("cutiepaws.org") == true) {
-                                return false // Load within WebView for cutiepaws.org links
+                                return false
                             }
-
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                webViewContext.startActivity(intent) // Use the context from the factory
+                                webViewContext.startActivity(intent)
                                 return true
                             } catch (e: ActivityNotFoundException) {
                                 Log.e("WebViewScreen", "Activity not found for URL: $url", e)
@@ -127,8 +168,29 @@ fun WebViewScreen(url: String, modifier: Modifier = Modifier) {
                         }
                         return false
                     }
+
+                    // You might need to call webView.requestFocus() in onPageFinished
+                    // if you are consistently having issues with the WebView not getting
+                    // initial focus, but this is usually not necessary for keyboard popups
+                    // related to user interaction with an input field.
+                    /*
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        view?.requestFocus()
+                    }
+                    */
                 }
-                loadUrl(url) // Load the initial URL
+
+                webChromeClient = object : WebChromeClient() {
+                    override fun onShowFileChooser(
+                        webView: WebView?,
+                        filePathCallback: ValueCallback<Array<Uri>>?,
+                        fileChooserParams: FileChooserParams?
+                    ): Boolean {
+                        return onShowFileChooser(filePathCallback, fileChooserParams)
+                    }
+                }
+                loadUrl(url)
             }
         },
         modifier = modifier
