@@ -1,4 +1,4 @@
-package com.cutiepaws.org // Adjust to your actual package
+package com.cutiepaws.org
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -17,21 +17,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets // For consuming insets
-import androidx.compose.foundation.layout.asPaddingValues // To convert insets to padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars // Specifically for status bar insets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-// import androidx.compose.ui.platform.LocalContext // Not strictly needed for this specific keyboard issue
+// import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import android.graphics.Color as AndroidGraphicsColor // Alias for Android Color
-import android.os.Build // Needed for WebView debugging
+import android.graphics.Color as AndroidGraphicsColor
+import android.os.Build
 
 class MainActivity : ComponentActivity() {
 
@@ -49,7 +49,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Enable WebView debugging in debug builds
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 WebView.setWebContentsDebuggingEnabled(true)
@@ -120,9 +119,6 @@ fun WebViewScreen(
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 settings.allowFileAccess = true
 
-                // Request focus for the WebView. This can sometimes help ensure
-                // it's ready to handle input events from its web content.
-                // However, the web content itself must focus the HTML input element.
                 requestFocus()
 
 
@@ -168,17 +164,6 @@ fun WebViewScreen(
                         }
                         return false
                     }
-
-                    // You might need to call webView.requestFocus() in onPageFinished
-                    // if you are consistently having issues with the WebView not getting
-                    // initial focus, but this is usually not necessary for keyboard popups
-                    // related to user interaction with an input field.
-                    /*
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        view?.requestFocus()
-                    }
-                    */
                 }
 
                 webChromeClient = object : WebChromeClient() {
