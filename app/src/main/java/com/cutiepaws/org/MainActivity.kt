@@ -1,6 +1,15 @@
 package com.cutiepaws.org // Adjust to your actual package
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -17,10 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import android.view.ViewGroup
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.graphics.Color as AndroidGraphicsColor // Alias for Android Color
 
 class MainActivity : ComponentActivity() {
@@ -31,33 +36,25 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // 2. Configure Status Bar Appearance (Transparent background, Light icons)
-        // This makes the system status bar itself see-through.
-        // The black background will come from our Compose layout.
         window.statusBarColor = AndroidGraphicsColor.TRANSPARENT
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false // false for light icons on dark bg
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
 
         setContent {
-            // Replace with YourAppComposeTheme if/when it's correctly set up.
-            // For now, using a basic MaterialTheme.
-            MaterialTheme {
-                // Surface provides a general background, might not be strictly necessary
-                // if the Box below handles the main background.
+            MaterialTheme { // Replace with YourAppComposeTheme when it's correctly set up
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background // Or any desired screen background
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    // This Box is the key to providing the black background for the status bar area
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black) // This will be the black behind the transparent status bar
+                            .background(Color.Black)
                     ) {
-                        // WebViewScreen is now padded only by the status bar height at the top
                         WebViewScreen(
                             url = "https://cutiepaws.org",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(WindowInsets.statusBars.asPaddingValues()) // Apply padding ONLY for the status bar
+                                .padding(WindowInsets.statusBars.asPaddingValues())
                         )
                     }
                 }
@@ -69,21 +66,71 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WebViewScreen(url: String, modifier: Modifier = Modifier) {
     AndroidView(
-        factory = { context ->
-            WebView(context).apply {
+        factory = { webViewContext -> // This context is crucial for the WebViewClient
+            WebView(webViewContext).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                webViewClient = WebViewClient()
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
-                // Dark theme settings for web content are currently commented out
-                loadUrl(url)
+
+                webViewClient = object : WebViewClient() {
+                    // Preferred method for API 24 (Android 7.0) and above
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        val loadedUrl = request?.url?.toString()
+                        if (loadedUrl != null && (loadedUrl.startsWith("http://") || loadedUrl.startsWith("https://"))) {
+                            // Check if the URL is for the initial domain, if so, let WebView handle it.
+                            // Otherwise, open in external browser.
+                            // This simple check assumes cutiepaws.org is your main domain.
+                            // For more complex scenarios (subdomains, multiple owned domains),
+                            // you might need a more robust domain checking logic.
+                            if (Uri.parse(loadedUrl).host?.contains("cutiepaws.org") == true) {
+                                return false // Load within WebView for cutiepaws.org links
+                            }
+
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loadedUrl))
+                                webViewContext.startActivity(intent) // Use the context from the factory
+                                return true // WebView has handled the URL
+                            } catch (e: ActivityNotFoundException) {
+                                Log.e("WebViewScreen", "Activity not found for URL: $loadedUrl", e)
+                                return false // Let WebView try to load if intent fails
+                            } catch (e: Exception) {
+                                Log.e("WebViewScreen", "Error opening URL: $loadedUrl", e)
+                                return false
+                            }
+                        }
+                        return false // For non-http/https links or other cases, let WebView handle
+                    }
+
+                    // Fallback for older versions (pre-API 24)
+                    @Deprecated("Use shouldOverrideUrlLoading(view, request) for API 24+", ReplaceWith("shouldOverrideUrlLoading(view, request)"))
+                    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+                            if (Uri.parse(url).host?.contains("cutiepaws.org") == true) {
+                                return false // Load within WebView for cutiepaws.org links
+                            }
+
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                webViewContext.startActivity(intent) // Use the context from the factory
+                                return true
+                            } catch (e: ActivityNotFoundException) {
+                                Log.e("WebViewScreen", "Activity not found for URL: $url", e)
+                                return false
+                            } catch (e: Exception) {
+                                Log.e("WebViewScreen", "Error opening URL: $url", e)
+                                return false
+                            }
+                        }
+                        return false
+                    }
+                }
+                loadUrl(url) // Load the initial URL
             }
         },
-        modifier = modifier // Apply the passed-in modifier (which now includes the status bar padding)
+        modifier = modifier
     )
 }
-
