@@ -20,14 +20,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-// import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import android.graphics.Color as AndroidGraphicsColor
@@ -56,8 +56,15 @@ class MainActivity : ComponentActivity() {
         }
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
+
         window.statusBarColor = AndroidGraphicsColor.TRANSPARENT
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        window.navigationBarColor = AndroidGraphicsColor.TRANSPARENT
+
+        WindowCompat.getInsetsController(window, window.decorView).let { controller ->
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
+        }
+
 
         setContent {
             MaterialTheme {
@@ -68,13 +75,16 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black)
+                            .background(ComposeColor.Black)
                     ) {
                         WebViewScreen(
                             url = "https://cutiepaws.org",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(WindowInsets.statusBars.asPaddingValues()),
+                                .padding(
+                                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                                ),
                             onShowFileChooser = { callback, params ->
                                 filePathCallback = callback
                                 val intent = params?.createIntent()
@@ -118,9 +128,11 @@ fun WebViewScreen(
                 settings.domStorageEnabled = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 settings.allowFileAccess = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
 
                 requestFocus()
-
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -181,3 +193,4 @@ fun WebViewScreen(
         modifier = modifier
     )
 }
+
