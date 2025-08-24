@@ -65,17 +65,16 @@ class MainActivity : ComponentActivity() {
             controller.isAppearanceLightNavigationBars = false
         }
 
-
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = ComposeColor.Transparent
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(ComposeColor.Black)
+                            .background(ComposeColor.Black.copy(alpha = 0.5f))
                     ) {
                         WebViewScreen(
                             url = "https://cutiepaws.org",
@@ -124,6 +123,8 @@ fun WebViewScreen(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                setBackgroundColor(AndroidGraphicsColor.TRANSPARENT)
+
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
